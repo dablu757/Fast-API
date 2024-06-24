@@ -1,11 +1,13 @@
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
-from constants import constant
+# from constants import constant
 
 
+SQLALCHEMY_DATABASE_URL = "postgresql://dabluchauhan:postgres@localhost/postgres"
 
-engine = create_engine(constant.SQLALCHEMY_DATABASE_URL)
+
+engine = create_engine(SQLALCHEMY_DATABASE_URL)
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
@@ -18,3 +20,7 @@ def get_db():
         yield db
     finally:
         db.close()
+
+
+
+print("database file run successfuly")

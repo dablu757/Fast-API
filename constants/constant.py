@@ -1,1 +1,1 @@
-SQLALCHEMY_DATABASE_URL = "postgresql://postgres:root@localhost/fastapi"
+# SQLALCHEMY_DATABASE_URL = "postgresql://postgres:root@localhost/fastapi"
