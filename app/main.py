@@ -4,6 +4,7 @@ import models
 from database import engine,get_db
 import schemas
 from typing import List
+import utils
 
 models.Base.metadata.create_all(bind=engine) #create table in database
 
@@ -65,3 +66,21 @@ def post_update(id : int , update_post : schemas.PostBase, db : Session = Depend
     post_query.update(update_post.model_dump(), synchronize_session=False)
     db.commit()
     return {'status' : 'post updated successfully'}
+
+
+'''
+*** user path operation creation started ***
+'''
+#create user path operation end-point
+@app.post("/users", status_code=status.HTTP_201_CREATED, response_model=schemas.UserOut)
+def user_create(user : schemas.UserCreate, db : Session = Depends(get_db)):
+
+    #hash password
+    hashed_password = utils.hash(user.password)
+    user.password = hashed_password
+
+    new_users = models.User(**user.model_dump())
+    db.add(new_users)
+    db.commit()
+    db.refresh(new_users)
+    return new_users
