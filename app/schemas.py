@@ -11,7 +11,7 @@ class PostCreate(PostBase):
 class PostResponce(PostBase):
     id : int
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 class UserCreate(BaseModel):
     email : EmailStr
@@ -23,4 +23,4 @@ class UserOut(BaseModel):
     email : EmailStr
 
     class Config:
-        orm_mode = True
+        from_attributes = True
