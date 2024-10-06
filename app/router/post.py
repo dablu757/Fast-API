@@ -4,6 +4,8 @@ import schemas, models
 from sqlalchemy.orm import Session
 from database import get_db
 from typing import List
+from . import oauth2
+# from oauth2 import get_current_user
 
 
 router = APIRouter(
@@ -12,8 +14,19 @@ router = APIRouter(
 
 #crete post path operation end-point
 @router.post("/", status_code=status.HTTP_201_CREATED, response_model=schemas.PostResponce)
-def create_post(post : schemas.PostCreate , db : Session = Depends(get_db)):
-    new_post = models.Post(**post.model_dump()) #unpacked dict
+def create_post(post: schemas.PostCreate, 
+                db: Session = Depends(get_db), 
+                current_user_id: models.User = Depends(oauth2.get_current_user)):
+    
+    if not current_user_id:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not authenticated"
+        )
+    
+    print(f"current user : {current_user_id}")
+    print(f"current user id : {current_user_id.id}")
+    new_post = models.Post(owner_id=current_user_id.id, **post.model_dump())  # Use the user_id extracted from the token
     db.add(new_post)
     db.commit()
     db.refresh(new_post)
@@ -21,7 +34,7 @@ def create_post(post : schemas.PostCreate , db : Session = Depends(get_db)):
 
 #get post path operation end-point
 @router.get("/", response_model=List[schemas.PostResponce])
-def get_post(db : Session = Depends(get_db)):
+def get_post(db : Session = Depends(get_db),current_user_id: models.User = Depends(oauth2.get_current_user)):
     _posts = db.query(models.Post).all()
     return _posts
 
@@ -38,7 +51,9 @@ def get_post_by_id(id : int, db : Session = Depends(get_db)):
 
 #delete post by id end-point
 @router.delete('/{id}')
-def post_deletion(id : int, db : Session = Depends(get_db)):
+def post_deletion(id : int,
+                  db : Session = Depends(get_db),
+                  current_user : models.User = Depends(oauth2.get_current_user)):
     post_query = db.query(models.Post).filter(models.Post.id == id)
 
     if post_query.first() == None:
@@ -53,7 +68,10 @@ def post_deletion(id : int, db : Session = Depends(get_db)):
 
 #update path operation
 @router.put('/{id}')
-def post_update(id : int , update_post : schemas.PostBase, db : Session = Depends(get_db)):
+def post_update(id : int ,
+                 update_post : schemas.PostBase, 
+                 db : Session = Depends(get_db),
+                 current_user : models.User=Depends(oauth2.get_current_user)):
     post_query = db.query(models.Post).filter(models.Post.id == id)
 
     post = post_query.first()
