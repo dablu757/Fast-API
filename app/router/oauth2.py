@@ -56,7 +56,7 @@ def get_current_user(token : str = Depends(oath2_scheme), db : Session = Depends
     )
 
     token_data = verify_access_token(token, credentials_exception)
-    print(f"token data : {token_data}")
+    # print(f"token data : {token_data}")
     user = db.query(models.User).filter(models.User.id == token_data.id).first()
     print(f"user : {user}")
     return user

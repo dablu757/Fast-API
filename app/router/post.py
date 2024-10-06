@@ -16,17 +16,15 @@ router = APIRouter(
 @router.post("/", status_code=status.HTTP_201_CREATED, response_model=schemas.PostResponce)
 def create_post(post: schemas.PostCreate, 
                 db: Session = Depends(get_db), 
-                current_user_id: models.User = Depends(oauth2.get_current_user)):
+                current_user: models.User = Depends(oauth2.get_current_user)):
     
-    if not current_user_id:
+    if not current_user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Not authenticated"
         )
     
-    print(f"current user : {current_user_id}")
-    print(f"current user id : {current_user_id.id}")
-    new_post = models.Post(owner_id=current_user_id.id, **post.model_dump())  # Use the user_id extracted from the token
+    new_post = models.Post(owner_id=current_user.id, **post.model_dump())  # Use the user_id extracted from the token
     db.add(new_post)
     db.commit()
     db.refresh(new_post)
@@ -34,18 +32,28 @@ def create_post(post: schemas.PostCreate,
 
 #get post path operation end-point
 @router.get("/", response_model=List[schemas.PostResponce])
-def get_post(db : Session = Depends(get_db),current_user_id: models.User = Depends(oauth2.get_current_user)):
-    _posts = db.query(models.Post).all()
-    return _posts
+def get_post(db : Session = Depends(get_db),current_user: models.User = Depends(oauth2.get_current_user)):
+    posts = db.query(models.Post).filter(models.Post.owner_id == current_user.id)
+    return posts
 
 #get post by id end-point
 @router.get('/{id}', response_model=schemas.PostResponce)
-def get_post_by_id(id : int, db : Session = Depends(get_db)):
-    post = db.query(models.Post).filter(models.Post.id == id).first()
+def get_post_by_id(id : int, 
+                   db : Session = Depends(get_db),
+                   current_user : models.User = Depends(oauth2.get_current_user)):
+    
+    post_query = db.query(models.Post).filter(models.Post.id == id)
+    post = post_query.first()
     if post == None:
         raise HTTPException(
             status_code= status.HTTP_404_NOT_FOUND,
             detail=f"post with id {id} not found"
+        )
+    
+    if post.owner_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=f"Not authorised to perform requested action"
         )
     return post
 
@@ -54,12 +62,22 @@ def get_post_by_id(id : int, db : Session = Depends(get_db)):
 def post_deletion(id : int,
                   db : Session = Depends(get_db),
                   current_user : models.User = Depends(oauth2.get_current_user)):
+    
+    # print(f"current user : {current_user}")
+    # print(f"current user_id : {current_user.id}")
+    # print(f"current user_email : {current_user.email}")
     post_query = db.query(models.Post).filter(models.Post.id == id)
-
-    if post_query.first() == None:
+    post = post_query.first()
+    if post == None:
         raise HTTPException(
             status_code= status.HTTP_404_NOT_FOUND,
             detail = f"post with id : {id} does not exist"
+        )
+    
+    if post.owner_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=f"Not authorised to perform requested action"
         )
     
     post_query.delete(synchronize_session=False)
@@ -81,6 +99,13 @@ def post_update(id : int ,
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"post with id : {id} not found"
         )
+    
+    if post.owner_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=f"Not authorised to perform requested action"
+        )
+    
     post_query.update(update_post.model_dump(), synchronize_session=False)
     db.commit()
     return {'status' : 'post updated successfully'}
