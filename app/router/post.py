@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 from database import get_db
 from typing import List
 from . import oauth2
+from typing import Optional
 # from oauth2 import get_current_user
 
 
@@ -32,8 +33,20 @@ def create_post(post: schemas.PostCreate,
 
 #get post path operation end-point
 @router.get("/", response_model=List[schemas.PostResponce])
-def get_post(db : Session = Depends(get_db),current_user: models.User = Depends(oauth2.get_current_user)):
-    posts = db.query(models.Post).filter(models.Post.owner_id == current_user.id)
+def get_posts(
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(oauth2.get_current_user),
+    limit: int = 10,
+    skip: int = 0,
+    search: Optional[str] = ""
+):
+    posts = (
+        db.query(models.Post)
+        .filter(models.Post.owner_id == current_user.id, models.Post.title.contains(search))
+        .limit(limit)
+        .offset(skip)
+        .all()
+    )
     return posts
 
 #get post by id end-point
