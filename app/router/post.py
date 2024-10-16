@@ -47,6 +47,9 @@ def get_posts(
         .offset(skip)
         .all()
     )
+
+    results = db.query(models.Post).join(models.Vote, models.Post.id == models.Vote.post_id, isouter=True).all()
+    print(results)
     return posts
 
 #get post by id end-point
