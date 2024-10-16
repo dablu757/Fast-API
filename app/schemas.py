@@ -1,4 +1,4 @@
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, conint
 from typing import Optional
 from datetime import datetime
 class PostBase(BaseModel):
@@ -42,3 +42,8 @@ class TokenResponce(BaseModel):
 # data which are embeded with token shcema
 class TokenData(BaseModel):
     id : Optional[int] = None
+
+
+class Vote(BaseModel):
+    post_id: int
+    dir: conint(le=1)
