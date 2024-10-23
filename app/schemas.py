@@ -16,6 +16,13 @@ class PostResponce(PostBase):
     class Config:
         from_attributes = True
 
+
+class PostOut(BaseModel):
+    Post : PostResponce
+    votes : int
+    
+    class Config:
+        from_attributes = True
 class UserCreate(BaseModel):
     email : EmailStr
     password : str
@@ -43,7 +50,6 @@ class TokenResponce(BaseModel):
 class TokenData(BaseModel):
     id : Optional[int] = None
 
-
 class Vote(BaseModel):
     post_id: int
-    dir: conint(le=1)
+    dir: conint(ge=0, le=1) # type: ignore

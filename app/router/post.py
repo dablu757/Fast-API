@@ -34,7 +34,7 @@ def create_post(post: schemas.PostCreate,
     return new_post
 
 #get post path operation end-point
-@router.get("/")
+@router.get("/", response_model=List[schemas.PostOut])
 def get_posts(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(oauth2.get_current_user),
@@ -43,48 +43,110 @@ def get_posts(
     search: Optional[str] = ""
 ):
     # posts = (
-    #     db.query(models.Post)
+    #     db.query(models.Post, func.count(models.Vote.post_id).label("votes"))
+    #     .outerjoin(models.Vote, models.Vote.post_id == models.Post.id)
     #     .filter(models.Post.owner_id == current_user.id, models.Post.title.contains(search))
+    #     .group_by(models.Post.id)
     #     .limit(limit)
     #     .offset(skip)
     #     .all()
     # )
+    
 
-    posts = db.query(models.Post, func.count(models.Vote.post_id)).join(models.Vote,
-                                          models.Post.id == models.Vote.post_id, isouter=True).group_by(models.Post.id).all()
-    # print(results)
-     # Convert the results to a JSON-serializable format
+    posts2 = (
+        db.query(models.Post, func.count(models.Vote.post_id))
+        .join(
+            models.Vote, 
+            models.Post.id == models.Vote.post_id, 
+            isouter=True
+        )
+        .group_by(models.Post.id)
+        .filter(
+            # models.Post.owner_id == current_user.id,  
+            models.Post.title.contains(search)       
+        )
+        .limit(limit)  
+        .offset(skip)  
+        .all()
+        )
+
     results = [
         {
-            "post": post.__dict__,
-            "votes": votes
+            "Post": post,
+            "votes": votes or 0
         }
-        for post, votes in posts
+        for post, votes in posts2
     ]
-
-    return results
+    
     return results
 
 #get post by id end-point
-@router.get('/{id}', response_model=schemas.PostResponce)
-def get_post_by_id(id : int, 
-                   db : Session = Depends(get_db),
-                   current_user : models.User = Depends(oauth2.get_current_user)):
+@router.get('/{id}', response_model=schemas.PostOut)
+def get_post_by_id(
+    id: int, 
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(oauth2.get_current_user)
+):
+    # Query to get the post and its associated vote count
+    post_with_votes = (
+        db.query(models.Post, func.count(models.Vote.post_id).label("votes"))
+        .outerjoin(models.Vote, models.Vote.post_id == models.Post.id)
+        .group_by(models.Post.id)
+        .filter(models.Post.id == id)
+        .first()
+    )
     
-    post_query = db.query(models.Post).filter(models.Post.id == id)
-    post = post_query.first()
-    if post == None:
+    # If post not found, raise 404
+    if post_with_votes is None:
         raise HTTPException(
-            status_code= status.HTTP_404_NOT_FOUND,
-            detail=f"post with id {id} not found"
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Post with id {id} not found"
         )
     
-    if post.owner_id != current_user.id:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=f"Not authorised to perform requested action"
-        )
-    return post
+    post, votes = post_with_votes
+    
+    # Structure the response as required by the PostOut schema
+    response_data = {
+        "Post": post,
+        "votes": votes or 0  # Default to 0 votes if no votes are found
+    }
+
+    return response_data
+
+
+
+# @router.get('/{id}', response_model=schemas.PostOut)
+# def get_post_by_id(id : int, 
+#                    db : Session = Depends(get_db),
+#                    current_user : models.User = Depends(oauth2.get_current_user)):
+    
+#     # post_query = db.query(models.Post).filter(models.Post.id == id)
+#     # post = post_query.first()
+
+#     posts = (
+#         db.query(models.Post, func.count(models.Vote.post_id))
+#         .join(
+#             models.Vote, 
+#             models.Post.id == models.Vote.post_id, 
+#             isouter=True
+#         )
+#         .group_by(models.Post.id)
+#         .filter(models.Post.id == id)
+#         .first()
+#     )
+    
+#     if posts == None:
+#         raise HTTPException(
+#             status_code= status.HTTP_404_NOT_FOUND,
+#             detail=f"post with id {id} not found"
+#         )
+
+#     # if post.owner_id != current_user.id:
+#     #     raise HTTPException(
+#     #         status_code=status.HTTP_401_UNAUTHORIZED,
+#     #         detail=f"Not authorised to perform requested action"
+#     #     )
+#     return posts
 
 #delete post by id end-point
 @router.delete('/{id}')
@@ -138,3 +200,43 @@ def post_update(id : int ,
     post_query.update(update_post.model_dump(), synchronize_session=False)
     db.commit()
     return {'status' : 'post updated successfully'}
+
+
+
+
+
+
+# @router.get("/", response_model=List[schemas.PostResponce])
+# @router.get("/", response_model=List[schemas.PostOut])
+# def get_posts(
+#     db: Session = Depends(get_db),
+#     current_user: models.User = Depends(oauth2.get_current_user),
+#     limit: int = 10,
+#     skip: int = 0,
+#     search: Optional[str] = ""
+# ):
+#     posts1 = (
+#         db.query(models.Post)
+#         .filter(models.Post.owner_id == current_user.id, models.Post.title.contains(search))
+#         .limit(limit)
+#         .offset(skip)
+#         .all()
+#     )
+
+
+#     posts2 = db.query(models.Post, func.count(models.Vote.post_id)).join(models.Vote,
+#                                           models.Post.id == models.Vote.post_id, isouter=True).group_by(models.Post.id).all()
+    
+#     post3 = db.query(models.Post).all()
+#     # print(results)
+#      # Convert the results to a JSON-serializable format
+#     results = [
+#         {
+#             "post": post.__dict__,
+#             "votes": votes or 0
+#         }
+#         for post, votes in posts2
+#     ]
+
+#     # return results
+#     return results
