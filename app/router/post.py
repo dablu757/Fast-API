@@ -6,6 +6,8 @@ from database import get_db
 from typing import List
 from . import oauth2
 from typing import Optional
+from sqlalchemy import func
+
 # from oauth2 import get_current_user
 
 
@@ -32,7 +34,7 @@ def create_post(post: schemas.PostCreate,
     return new_post
 
 #get post path operation end-point
-@router.get("/", response_model=List[schemas.PostResponce])
+@router.get("/")
 def get_posts(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(oauth2.get_current_user),
@@ -40,17 +42,28 @@ def get_posts(
     skip: int = 0,
     search: Optional[str] = ""
 ):
-    posts = (
-        db.query(models.Post)
-        .filter(models.Post.owner_id == current_user.id, models.Post.title.contains(search))
-        .limit(limit)
-        .offset(skip)
-        .all()
-    )
+    # posts = (
+    #     db.query(models.Post)
+    #     .filter(models.Post.owner_id == current_user.id, models.Post.title.contains(search))
+    #     .limit(limit)
+    #     .offset(skip)
+    #     .all()
+    # )
 
-    results = db.query(models.Post).join(models.Vote, models.Post.id == models.Vote.post_id, isouter=True).all()
-    print(results)
-    return posts
+    posts = db.query(models.Post, func.count(models.Vote.post_id)).join(models.Vote,
+                                          models.Post.id == models.Vote.post_id, isouter=True).group_by(models.Post.id).all()
+    # print(results)
+     # Convert the results to a JSON-serializable format
+    results = [
+        {
+            "post": post.__dict__,
+            "votes": votes
+        }
+        for post, votes in posts
+    ]
+
+    return results
+    return results
 
 #get post by id end-point
 @router.get('/{id}', response_model=schemas.PostResponce)
